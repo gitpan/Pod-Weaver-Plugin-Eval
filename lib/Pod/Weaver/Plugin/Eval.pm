@@ -5,11 +5,10 @@ use Moose;
 with 'Pod::Weaver::Role::Section';
 
 use List::Util qw(first);
-use Module::Load;
 use Pod::Elemental;
 use Pod::Elemental::Element::Nested;
 
-our $VERSION = '0.01'; # VERSION
+our $VERSION = '0.02'; # VERSION
 
 # regex
 has include_modules => (
@@ -35,8 +34,9 @@ sub weave_section {
     if (!$self->{_compiled_code}) {
         my $code = $self->code;
         die "Please specify code" unless $code;
-        $self->log_debug(["compiling code ..."]);
+        $self->log(["compiling code ..."]);
         $code = "sub { $code }" unless $code =~ /^\s*sub\s*\{/s;
+        $self->log(["code is: %s", $code]);
         eval "\$self->{_compiled_code} = $code";
         die "Can't compile code '$code': $@" if $@;
     }
@@ -51,7 +51,7 @@ sub weave_section {
         $package =~ s!/!::!g;
 
     } else {
-        $self->log_debug(["skipped file %s (not a Perl module)", $filename]);
+        $self->log(["skipped file %s (not a Perl module)", $filename]);
         return;
     }
     if (defined $self->include_files) {
@@ -59,7 +59,7 @@ sub weave_section {
         eval { $re = qr/$re/ };
         $@ and die "Invalid regex in include_files: $re ($@)";
         unless ($filename =~ $re) {
-            $self->log_debug(["skipped file %s (doesn't match exclude_files)",
+            $self->log(["skipped file %s (doesn't match exclude_files)",
                               $filename]);
             return;
         }
@@ -76,13 +76,9 @@ sub weave_section {
     }
 
     local @INC = ("lib", @INC);
-    if ($ext eq 'pm') {
-        $self->log_debug(["loading module %s", $package]);
-        load $package;
-    }
 
     # run code
-    $self->log_debug(["loading module %s", $package]);
+    $self->log(["running code on module %s", $package]);
     my %args = (
         args     => \@_,
         document => $document,
@@ -107,7 +103,7 @@ Pod::Weaver::Plugin::Eval - Evaluate code
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
@@ -116,13 +112,13 @@ In your C<weaver.ini>:
  [-Eval]
  include_modules = ^Foo::Bar$
  ;include_files  = REGEX
- code = sub { my ($self, %args)=@_; my $document = $args{document}; push @{$document->children}, ... }
+ code = sub { my ($self, %args)=@_; use Module::Load; load $args{module}; my $document = $args{document}; push @{$document->children}, ... }
 
 =head1 DESCRIPTION
 
-This plugin load modules and evaluates Perl code. It can be used to extract
-stuffs from the module (like some configuration or hash keys) and insert it to
-the POD.
+This plugin evaluates Perl code specified in your weaver.ini (or dist.ini). It
+can be used to do various stuffs that might be too trivial/short to build a
+dedicated Pod::Weaver::Plugin for.
 
 I first created this module to insert list of border styles and color themes
 contained in C<%border_styles> package variable in
@@ -157,6 +153,10 @@ with C<%args> containing these keys:
 =item * filename => STR
 
 =item * package => STR
+
+=item * module => STR
+
+Alias for C<package>.
 
 =item * args => ARRAY
 

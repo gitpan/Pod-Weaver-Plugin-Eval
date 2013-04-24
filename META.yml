@@ -19,4 +19,4 @@ requires:
 resources:
   homepage: http://metacpan.org/release/Pod-Weaver-Plugin-Eval
   repository: http://github.com/sharyanto/perl-Pod-Weaver-Plugin-Eval
-version: 0.01
+version: 0.02
